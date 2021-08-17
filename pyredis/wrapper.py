@@ -1,6 +1,6 @@
 import json
 import redis
-from typing import Union
+from typing import Union, List
 
 
 class RedisConnection(object):
@@ -21,21 +21,48 @@ class RedisConnection(object):
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.R.close()
 
-    def get(self, key: str) -> Union[object, bool]:
+    def json_deserialize(self, s: Union[str, bytes]) -> Union[dict, bytes]:
+        try:
+            return json.loads(s)
+        except json.decoder.JSONDecodeError:
+            # just return the raw value in case we have a json decoding error
+            return s
+
+    def get_single(self, key: str) -> Union[dict, bytes]:
         """
         invokes redis get() method but tries to de-serialize the data to python object.
 
         :param key: name of the key
-        :return object or bool: Python object or False in case the key cannot be found
+        :return: dict or bytes, depending on whether the de-serialization was successful
         """
         if v := self.R.get(key):
-            try:
-                return json.loads(v)
-            except json.decoder.JSONDecodeError:
-                # just return the raw value in case we have a json decoding error
-                return v
+            return self.json_deserialize(v)
         else:
-            return False
+            return {}
+
+    def get_multiple(self, keys: List[str]) -> list:
+        """
+        invokes get_single(key) for each key in keys.
+
+        :param keys: list of keys
+        :return: list of dicts
+        """
+        return [self.get_single(k) for k in keys]
+
+    def get(self, key: Union[str, list]) -> Union[dict, list]:
+        """
+        wraps redis get() method, and takes care of de-serialization. kan handle one or multiple keys
+
+        :param key: key or list of keys
+        :return dict or list of dicts
+        """
+
+        if isinstance(key, str):
+            return self.get_single(key)
+        elif isinstance(key, list):
+            return self.get_multiple(keys=key)
+        else:
+            raise TypeError("expects a key or a list of keys as parameter")
 
     def set(self, key: str, data: object) -> str:
         """

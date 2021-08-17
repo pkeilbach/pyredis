@@ -9,7 +9,7 @@ with open("README.md", "r", encoding="utf-8") as f:
 
 setuptools.setup(
     name='py-redis',
-    version='1.0.4',
+    version='1.1.0',
     author='Pascal Keilbach',
     author_email='python@pk17.org',
     description='A convenience wrapper for the official Python redis package',
